@@ -547,7 +547,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- Open an issue on [GitHub](https://github.com/yourusername/ngn-usd-oracle-client/issues)
+- Open an issue on [GitHub](https://github.com/wrappedcbdc/cngn-price-oracle/issues)
 - Email: [contact@cngn.co](mailto:contact@cngn.co)
 
 ---
