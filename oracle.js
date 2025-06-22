@@ -6,13 +6,18 @@ const NGNUSDOracle = require('./src/core/NGNUSDOracle');
 // Main execution
 async function main() {
     let oracle;
-    
+
+
+    const privateKey = process.env.PRIVATE_KEY;
+    const rpcUrl = process.env.RPC_URL;
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const wallet = new ethers.Wallet(privateKey, provider);
+    const signer = wallet.connect(provider);
+
     try {
-        // For read-only operations, you can use a dummy private key
-        const privateKey = process.env.PRIVATE_KEY || '0x0000000000000000000000000000000000000000000000000000000000000001';
-        
         // Initialize oracle
-        oracle = new NGNUSDOracle(privateKey);
+        oracle = new NGNUSDOracle(signer);
 
         // Get oracle description
         const description = await oracle.getDescription();
@@ -59,7 +64,7 @@ async function main() {
 
         // Keep the script running
         console.log('\n✅ Oracle monitor is running. Press Ctrl+C to exit.');
-        
+
     } catch (error) {
         console.error('Main execution error:', error);
         process.exit(1);

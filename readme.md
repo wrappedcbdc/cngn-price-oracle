@@ -135,6 +135,13 @@ npm run dev:api     # development mode with auto-restart
 ```javascript
 const { NGNUSDOracle } = require('./oracle');
 
+const privateKey: string = "private_key";
+const rpcUrl: string = "https://mainnet.base.org";
+
+const provider = new ethers.JsonRpcProvider(rpcUrl);
+const wallet = new ethers.Wallet(privateKey, provider);
+const signer = wallet.connect(provider);
+
 async function main() {
     // Initialize the oracle client
     const oracle = new NGNUSDOracle(process.env.PRIVATE_KEY);
