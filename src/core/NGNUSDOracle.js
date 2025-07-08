@@ -236,7 +236,7 @@ class NGNUSDOracle {
             console.log(`Querying historical events (last ${blockRange} blocks)...`);
 
             const currentBlock = await this.executeWithRetry(async () => {
-                return await this.provider.getBlockNumber();
+                return await this.signer.provider.getBlockNumber();
             });
 
             const fromBlock = currentBlock - blockRange;
