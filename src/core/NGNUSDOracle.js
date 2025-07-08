@@ -14,61 +14,28 @@ const ORACLE_CONTRACT_ADDRESS = process.env.ORACLE_CONTRACT_ADDRESS;
 const limit = pLimit(1);
 
 class NGNUSDOracle {
-    constructor(privateKey) {
+    constructor(signer) {
         // Initialize with RPC rotation
+        this.signer = signer;
         this.rpcIndex = 0;
         this.rpcEndpoints = RPC_ENDPOINTS;
-        this.initializeProvider();
-        
-        // Initialize wallet
-        this.wallet = new ethers.Wallet(privateKey, this.provider);
-        
+
         // Initialize contract
         this.contract = new ethers.Contract(
             ORACLE_CONTRACT_ADDRESS,
             ORACLE_ABI,
-            this.provider
+            this.signer
         );
-        
+
         // Cache for static values
         this.cachedDecimals = null;
         this.cachedDescription = null;
-        
+
         // Event listeners storage
         this.eventListeners = [];
         this.activeListeners = new Map();
-        
+
         console.log('Oracle initialized with address:', ORACLE_CONTRACT_ADDRESS);
-    }
-
-    // Initialize or rotate provider
-    initializeProvider() {
-        this.provider = new ethers.JsonRpcProvider(this.rpcEndpoints[this.rpcIndex]);
-        console.log(`Using RPC endpoint: ${this.rpcEndpoints[this.rpcIndex]}`);
-    }
-
-    // Rotate to next RPC endpoint
-    rotateRPC() {
-        // Remove existing event listeners before switching
-        this.removeAllListeners();
-        
-        this.rpcIndex = (this.rpcIndex + 1) % this.rpcEndpoints.length;
-        this.initializeProvider();
-        
-        // Reinitialize contract with new provider
-        this.contract = new ethers.Contract(
-            ORACLE_CONTRACT_ADDRESS,
-            ORACLE_ABI,
-            this.provider
-        );
-        
-        // Re-setup event listeners if they were active
-        if (this.activeListeners.size > 0) {
-            console.log('Re-establishing event listeners...');
-            this.reestablishEventListeners();
-        }
-        
-        console.log(`Rotated to RPC endpoint: ${this.rpcEndpoints[this.rpcIndex]}`);
     }
 
     // Remove all event listeners
@@ -84,7 +51,7 @@ class NGNUSDOracle {
     reestablishEventListeners() {
         const listeners = Array.from(this.activeListeners.entries());
         this.activeListeners.clear();
-        
+
         listeners.forEach(([eventName, listener]) => {
             try {
                 this.contract.on(eventName, listener);
@@ -101,14 +68,36 @@ class NGNUSDOracle {
             try {
                 return await fn();
             } catch (error) {
-                const isRateLimit = error.info?.error?.message?.includes('rate limit') || 
-                                  error.code === -32016;
+                const isRateLimit = error.info?.error?.message?.includes('rate limit') ||
+                    error.code === -32016;
                 const isFilterError = error.error?.message?.includes('filter not found');
-                
+
                 if (isRateLimit || isFilterError) {
                     console.log(`${isRateLimit ? 'Rate limit' : 'Filter error'} hit, rotating RPC... (attempt ${i + 1}/${retries})`);
-                    this.rotateRPC();
-                    
+                    this.removeAllListeners();
+
+                    this.rpcIndex = (this.rpcIndex + 1) % this.rpcEndpoints.length;
+                    const newRpcUrl = this.rpcEndpoints[this.rpcIndex];
+
+                    // Create a fallback provider and reconnect the signer
+                    const fallbackProvider = new ethers.JsonRpcProvider(newRpcUrl);
+                    const fallbackSigner = this.signer.connect(fallbackProvider);
+
+                    // Reinitialize contract with the fallback signer
+                    this.contract = new ethers.Contract(
+                        ORACLE_CONTRACT_ADDRESS,
+                        ORACLE_ABI,
+                        fallbackSigner
+                    );
+
+                    // Re-establish event listeners if they were active
+                    if (this.activeListeners.size > 0) {
+                        console.log('Re-establishing event listeners...');
+                        this.reestablishEventListeners();
+                    }
+
+                    console.log(`Rotated to fallback RPC: ${newRpcUrl}`);
+
                     // Wait before retry with exponential backoff
                     const delay = Math.min(1000 * Math.pow(2, i), 10000);
                     await new Promise(resolve => setTimeout(resolve, delay));
@@ -145,17 +134,17 @@ class NGNUSDOracle {
             try {
                 const decimals = await this.getDecimals();
                 const description = await this.getDescription();
-                
+
                 const latestAnswer = await this.executeWithRetry(async () => {
                     return await this.contract.latestAnswer();
                 });
 
                 // Oracle returns NGN/USD (how many USD per 1 NGN)
                 const ngnToUsd = Number(latestAnswer) / Math.pow(10, decimals);
-                
+
                 // Convert to USD/NGN (how many NGN per 1 USD)
                 const usdToNgn = 1 / ngnToUsd;
-                
+
                 return {
                     ngnToUsd: ngnToUsd,
                     usdToNgn: usdToNgn,
@@ -177,16 +166,16 @@ class NGNUSDOracle {
         return limit(async () => {
             try {
                 const decimals = await this.getDecimals();
-                
+
                 const roundData = await this.executeWithRetry(async () => {
                     return await this.contract.latestRoundData();
                 });
-                
+
                 // Oracle returns NGN/USD
                 const ngnToUsd = Number(roundData.answer) / Math.pow(10, decimals);
                 // Convert to USD/NGN
                 const usdToNgn = 1 / ngnToUsd;
-                
+
                 return {
                     roundId: roundData.roundId.toString(),
                     answer: Number(roundData.answer),
@@ -245,13 +234,13 @@ class NGNUSDOracle {
     async queryHistoricalEvents(blockRange = 100, batchSize = 50) {
         try {
             console.log(`Querying historical events (last ${blockRange} blocks)...`);
-            
+
             const currentBlock = await this.executeWithRetry(async () => {
                 return await this.provider.getBlockNumber();
             });
-            
+
             const fromBlock = currentBlock - blockRange;
-            
+
             // Single batch for small ranges
             if (blockRange <= batchSize) {
                 const filter = this.contract.filters.AnswerUpdated();
@@ -260,10 +249,10 @@ class NGNUSDOracle {
                         return await this.contract.queryFilter(filter, fromBlock, currentBlock);
                     });
                 });
-                
+
                 return this.processEvents(events);
             }
-            
+
             // Split into batches for larger ranges
             const batches = [];
             for (let i = fromBlock; i <= currentBlock; i += batchSize) {
@@ -276,7 +265,7 @@ class NGNUSDOracle {
             console.log(`Querying in ${batches.length} batches...`);
 
             // Query batches with rate limiting
-            const batchPromises = batches.map(batch => 
+            const batchPromises = batches.map(batch =>
                 limit(async () => {
                     try {
                         const filter = this.contract.filters.AnswerUpdated();
@@ -292,9 +281,9 @@ class NGNUSDOracle {
 
             const batchResults = await Promise.all(batchPromises);
             const events = batchResults.flat();
-            
+
             console.log(`Found ${events.length} price update events`);
-            
+
             return this.processEvents(events);
         } catch (error) {
             console.error('Error querying historical events:', error);
@@ -305,11 +294,11 @@ class NGNUSDOracle {
     // Process events helper
     async processEvents(events) {
         const decimals = await this.getDecimals();
-        
+
         return events.map(event => {
             const ngnToUsd = Number(event.args.current) / Math.pow(10, decimals);
             const usdToNgn = 1 / ngnToUsd;
-            
+
             return {
                 blockNumber: event.blockNumber,
                 transactionHash: event.transactionHash,
@@ -326,11 +315,11 @@ class NGNUSDOracle {
 
     // Monitor price continuously with error handling
     async monitorPrice(intervalMs = 60000) {
-        console.log(`Starting price monitoring (interval: ${intervalMs/1000}s)...`);
-        
+        console.log(`Starting price monitoring (interval: ${intervalMs / 1000}s)...`);
+
         // Initial price check
         await this.displayCurrentPrice();
-        
+
         // Set up periodic checks with error handling
         this.monitorInterval = setInterval(async () => {
             try {
