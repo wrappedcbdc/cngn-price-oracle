@@ -94,7 +94,7 @@ PRIVATE_KEY=your_wallet_private_key_without_0x_prefix
 
 # Optional (defaults provided)
 BASE_RPC_URL=https://mainnet.base.org
-ORACLE_ADDRESS=0xdfbb5Cbc88E382de007bfe6CE99C388176ED80aD
+ORACLE_CONTRACT_ADDRESS=0xdfbb5Cbc88E382de007bfe6CE99C388176ED80aD
 POLLING_INTERVAL=30000  # Price check interval in milliseconds
 ```
 
