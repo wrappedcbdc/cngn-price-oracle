@@ -14,9 +14,9 @@ const ORACLE_CONTRACT_ADDRESS = process.env.ORACLE_CONTRACT_ADDRESS;
 const limit = pLimit(1);
 
 class NGNUSDOracle {
-    constructor(signer) {
+    constructor(provider) {
         // Initialize with RPC rotation
-        this.signer = signer;
+        this.provider = provider;
         this.rpcIndex = 0;
         this.rpcEndpoints = RPC_ENDPOINTS;
 
@@ -24,7 +24,7 @@ class NGNUSDOracle {
         this.contract = new ethers.Contract(
             ORACLE_CONTRACT_ADDRESS,
             ORACLE_ABI,
-            this.signer
+            this.provider
         );
 
         // Cache for static values
@@ -79,15 +79,15 @@ class NGNUSDOracle {
                     this.rpcIndex = (this.rpcIndex + 1) % this.rpcEndpoints.length;
                     const newRpcUrl = this.rpcEndpoints[this.rpcIndex];
 
-                    // Create a fallback provider and reconnect the signer
+                    // Create a fallback provider
                     const fallbackProvider = new ethers.JsonRpcProvider(newRpcUrl);
-                    const fallbackSigner = this.signer.connect(fallbackProvider);
+                    this.provider = fallbackProvider;
 
-                    // Reinitialize contract with the fallback signer
+                    // Reinitialize contract with the fallback provider
                     this.contract = new ethers.Contract(
                         ORACLE_CONTRACT_ADDRESS,
                         ORACLE_ABI,
-                        fallbackSigner
+                        fallbackProvider
                     );
 
                     // Re-establish event listeners if they were active
@@ -236,7 +236,7 @@ class NGNUSDOracle {
             console.log(`Querying historical events (last ${blockRange} blocks)...`);
 
             const currentBlock = await this.executeWithRetry(async () => {
-                return await this.signer.provider.getBlockNumber();
+                return await this.provider.getBlockNumber();
             });
 
             const fromBlock = currentBlock - blockRange;
