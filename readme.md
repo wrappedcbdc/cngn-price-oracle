@@ -1,6 +1,6 @@
 # NGN/USD Oracle Client for Base Mainnet
 
-A Node.js client for interacting with Chainlink's cNGN/USD price feed oracle on Base mainnet. This implementation provides real-time exchange rate monitoring, event-driven updates, and transaction capabilities for the Nigerian Naira to US Dollar pair.
+A Node.js client for interacting with Chainlink's cNGN/USD price feed oracle on Base mainnet. This implementation provides real-time exchange rate monitoring, event-driven updates, and historical data queries for the Nigerian Naira to US Dollar pair.
 
 ## 📋 Table of Contents
 
@@ -37,8 +37,7 @@ Chainlink's cNGN oracle is part of their comprehensive price feed network, provi
 - 🔄 **Real-time Price Monitoring** - Continuous polling of current exchange rates
 - 📡 **Event-Driven Architecture** - Listen to price update events in real-time
 - 📊 **Historical Data Query** - Access past price updates and events
-- 💸 **Transaction Support** - Send transactions to interact with the oracle
-- 🛡️ **Error Handling** - Robust error management and retry logic
+- ️ **Error Handling** - Robust error management and retry logic
 - 📈 **Detailed Logging** - Comprehensive logging for debugging and monitoring
 
 ## 📚 Prerequisites
@@ -51,8 +50,6 @@ Before you begin, ensure you have the following installed:
 
 You'll also need:
 
-- A **Base mainnet compatible wallet** with private key
-- **ETH on Base mainnet** for gas fees
 - **RPC endpoint** (default uses public Base RPC)
 
 ## 🚀 Installation
@@ -90,11 +87,10 @@ Create a `.env` file in the root directory with the following variables:
 
 ```env
 # Required
-PRIVATE_KEY=your_wallet_private_key_without_0x_prefix
+ORACLE_CONTRACT_ADDRESS=0xdfbb5Cbc88E382de007bfe6CE99C388176ED80aD
 
 # Optional (defaults provided)
-BASE_RPC_URL=https://mainnet.base.org
-ORACLE_CONTRACT_ADDRESS=0xdfbb5Cbc88E382de007bfe6CE99C388176ED80aD
+RPC_URL=https://mainnet.base.org
 POLLING_INTERVAL=30000  # Price check interval in milliseconds
 ```
 
@@ -134,17 +130,14 @@ npm run dev:api     # development mode with auto-restart
 
 ```javascript
 const { NGNUSDOracle } = require('./oracle');
+const { ethers } = require('ethers');
 
-const privateKey: string = "private_key";
-const rpcUrl: string = "https://mainnet.base.org";
-
+const rpcUrl = "https://mainnet.base.org";
 const provider = new ethers.JsonRpcProvider(rpcUrl);
-const wallet = new ethers.Wallet(privateKey, provider);
-const signer = wallet.connect(provider);
 
 async function main() {
     // Initialize the oracle client
-    const oracle = new NGNUSDOracle(process.env.PRIVATE_KEY);
+    const oracle = new NGNUSDOracle(provider);
     
     // Get current price
     const price = await oracle.getCurrentPrice();
@@ -163,13 +156,13 @@ main().catch(console.error);
 ### Constructor
 
 ```javascript
-new NGNUSDOracle(privateKey)
+new NGNUSDOracle(provider)
 ```
 
 Creates a new instance of the NGN/USD oracle client.
 
 **Parameters:**
-- `privateKey` (string): Wallet private key for signing transactions
+- `provider` (ethers.Provider): An ethers.js provider connected to Base mainnet
 
 ### Methods
 
@@ -397,7 +390,8 @@ oracle.contract.on('AnswerUpdated', (current, roundId, updatedAt, event) => {
 
 ```javascript
 async function checkPrice() {
-    const oracle = new NGNUSDOracle(process.env.PRIVATE_KEY);
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+    const oracle = new NGNUSDOracle(provider);
     const { formattedPrice } = await oracle.getCurrentPrice();
     console.log(formattedPrice);
 }
@@ -407,7 +401,8 @@ async function checkPrice() {
 
 ```javascript
 async function analyzeHistory() {
-    const oracle = new NGNUSDOracle(process.env.PRIVATE_KEY);
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+    const oracle = new NGNUSDOracle(provider);
     const events = await oracle.queryHistoricalEvents(1000);
     
     events.forEach(event => {
@@ -420,7 +415,8 @@ async function analyzeHistory() {
 
 ```javascript
 async function priceAlerts() {
-    const oracle = new NGNUSDOracle(process.env.PRIVATE_KEY);
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+    const oracle = new NGNUSDOracle(provider);
     const threshold = 1500; // Alert if 1 USD > 1500 NGN
     
     oracle.contract.on('AnswerUpdated', async (current, roundId, updatedAt) => {
@@ -437,29 +433,17 @@ async function priceAlerts() {
 
 ## 🔒 Security Considerations
 
-1. **Private Key Management**
-   - Never commit private keys to version control
-   - Use environment variables for sensitive data
-   - Consider using hardware wallets for production
-
-2. **RPC Security**
+1. **RPC Security**
    - Use private RPC endpoints for production
    - Implement rate limiting to avoid DOS
    - Monitor for unusual activity
 
-3. **Transaction Security**
-   - Always estimate gas before sending transactions
-   - Implement transaction retry logic
-   - Set appropriate gas price limits
-
-4. **Best Practices**
+2. **Best Practices**
 
 ```javascript
-// Good: Using environment variable
-const oracle = new NGNUSDOracle(process.env.PRIVATE_KEY);
-
-// Bad: Hardcoding private key
-const oracle = new NGNUSDOracle("abc123...");
+// Good: Using environment variable for RPC
+const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+const oracle = new NGNUSDOracle(provider);
 ```
 
 ## 🔧 Troubleshooting
@@ -474,15 +458,7 @@ Error: Could not connect to Base mainnet
 
 **Solution:** Check your internet connection and RPC endpoint availability.
 
-#### 2. Insufficient Gas
-
-```
-Error: Insufficient funds for gas
-```
-
-**Solution:** Ensure your wallet has enough ETH on Base mainnet.
-
-#### 3. Invalid ABI
+#### 2. Invalid ABI
 
 ```
 Error: Contract method not found
@@ -495,14 +471,16 @@ Error: Contract method not found
 Enable debug logging:
 
 ```javascript
-const oracle = new NGNUSDOracle(privateKey, { debug: true });
+const provider = new ethers.JsonRpcProvider(rpcUrl);
+const oracle = new NGNUSDOracle(provider);
 ```
 
 ### Health Check
 
 ```javascript
 async function healthCheck() {
-    const oracle = new NGNUSDOracle(process.env.PRIVATE_KEY);
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+    const oracle = new NGNUSDOracle(provider);
     
     try {
         await oracle.getCurrentPrice();

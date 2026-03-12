@@ -7,17 +7,12 @@ const NGNUSDOracle = require('./src/core/NGNUSDOracle');
 async function main() {
     let oracle;
 
-
-    const privateKey = process.env.PRIVATE_KEY;
     const rpcUrl = process.env.RPC_URL;
-
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const wallet = new ethers.Wallet(privateKey, provider);
-    const signer = wallet.connect(provider);
 
     try {
         // Initialize oracle
-        oracle = new NGNUSDOracle(signer);
+        oracle = new NGNUSDOracle(provider);
 
         // Get oracle description
         const description = await oracle.getDescription();

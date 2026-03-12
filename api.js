@@ -14,8 +14,10 @@ app.use(express.json());
 // Initialize oracle
 let oracle;
 const initializeOracle = () => {
-    const privateKey = process.env.PRIVATE_KEY || '0x0000000000000000000000000000000000000000000000000000000000000001';
-    oracle = new NGNUSDOracle(privateKey);
+    const { ethers } = require('ethers');
+    const rpcUrl = process.env.RPC_URL || 'https://mainnet.base.org';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    oracle = new NGNUSDOracle(provider);
     console.log('Oracle initialized for API server');
 };
 
