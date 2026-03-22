@@ -8,6 +8,7 @@ A Node.js client for interacting with Chainlink's cNGN/USD price feed oracle on 
 - [Features](#-features)
 - [Prerequisites](#-prerequisites)
 - [Installation](#-installation)
+- [Docker Installation](#-docker-installation-recommended)
 - [Configuration](#️-configuration)
 - [Usage](#-usage)
 - [API Reference](#-api-reference)
@@ -79,6 +80,89 @@ yarn install
 cp .env.example .env
 ```
 
+## 🐳 Docker Installation (Recommended)
+
+### Quick Start with Docker
+
+1. **Clone and configure**
+
+```bash
+git clone https://github.com/wrappedcbdc/cngn-price-oracle.git
+cd cngn-price-oracle
+cp .env.example .env
+```
+
+2. **Build and run with Docker Compose**
+
+```bash
+# Start both API server and monitoring service
+docker-compose up -d
+
+# Or start only the API server
+docker-compose up -d cngn-oracle-api
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### Using Docker Directly
+
+**Build the image:**
+
+```bash
+docker build -t cngn-oracle .
+```
+
+**Run API server:**
+
+```bash
+docker run -d \
+  --name cngn-oracle-api \
+  -p 3000:3000 \
+  -e ORACLE_CONTRACT_ADDRESS=0xdfbb5Cbc88E382de007bfe6CE99C388176ED80aD \
+  -e RPC_URL=https://mainnet.base.org \
+  cngn-oracle
+```
+
+**Run monitoring service:**
+
+```bash
+docker run -d \
+  --name cngn-oracle-monitor \
+  -e ORACLE_CONTRACT_ADDRESS=0xdfbb5Cbc88E382de007bfe6CE99C388176ED80aD \
+  -e RPC_URL=https://mainnet.base.org \
+  cngn-oracle npm start
+```
+
+**Using environment file:**
+
+```bash
+docker run -d \
+  --name cngn-oracle-api \
+  -p 3000:3000 \
+  --env-file .env \
+  cngn-oracle
+```
+
+**Docker commands:**
+
+```bash
+# View logs
+docker logs -f cngn-oracle-api
+
+# Stop container
+docker stop cngn-oracle-api
+
+# Remove container
+docker rm cngn-oracle-api
+
+# Execute commands inside container
+docker exec -it cngn-oracle-api npm run dev
+```
+
 ## ⚙️ Configuration
 
 ### Environment Variables
@@ -92,6 +176,7 @@ ORACLE_CONTRACT_ADDRESS=0xdfbb5Cbc88E382de007bfe6CE99C388176ED80aD
 # Optional (defaults provided)
 RPC_URL=https://mainnet.base.org
 POLLING_INTERVAL=30000  # Price check interval in milliseconds
+API_PORT=3000  # API server port
 ```
 
 ### Network Configuration
